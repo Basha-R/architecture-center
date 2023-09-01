@@ -1,4 +1,4 @@
-This article briefly describes the steps for running [WRF](https://www.mmm.ucar.edu/models/wrf) on a virtual machine (VM) that's deployed on Azure. It also presents the performance results of running WRF on Azure.
+This article briefly describes the steps for running [WRF](https://www.mmm.ucar.edu/models/wrf) on a HPC cluster that's deployed on Azure. It also presents the performance results of running WRF on Azure.
 
 Weather Research & Forecasting (WRF) is a mesoscale numerical weather-prediction system that's designed for atmospheric research and operational forecasting applications. 
 
@@ -15,7 +15,9 @@ WRF is used by academic atmospheric scientists (dynamics, physics, weather, and 
 
 ## Architecture
 
-:::image type="content" source="media/wrf/weather-research-forecasting.svg" alt-text="Diagram that shows an architecture for deploying WRF." lightbox="media/wrf/weather-research-forecasting.svg" border="false":::
+Multi-node configuration
+ ![image](https://github.com/MicrosoftDocs/architecture-center/assets/142488173/275bd725-c13d-487c-9095-640bb8a476d1)
+
 
 *Download a [Visio file](https://arch-center.azureedge.net/hpc-weather-research-forecasting.vsdx) of this
 architecture.*
@@ -28,6 +30,7 @@ architecture.*
     used to create a private network infrastructure in the cloud.
   - [Network security groups](/azure/virtual-network/network-security-groups-overview) are used to restrict access to the VM.  
   - A public IP address connects the internet to the VM.
+- [Azure CycleCloud](https://azuremarketplace.microsoft.com/en-US/marketplace/apps/azurecyclecloud.azure-cyclecloud) is used to create the cluster in the multi-node configuration.
 - A physical solid-state drive (SSD) is used for storage.
 
 ## Compute sizing and drivers
@@ -44,25 +47,43 @@ The performance tests of WRF used [HBv3-series](/azure/virtual-machines/hbv3-ser
 
 HBv3-series VMs are optimized for HPC applications like fluid dynamics, explicit and implicit finite element analysis, weather modeling, seismic processing, reservoir simulation, and RTL simulation. 
 
-### Required drivers
 
-To use the AMD CPUs on [HBv3-series](/azure/virtual-machines/hbv3-series) VMs, you need to install AMD drivers.
+## Install WRF on a VM
 
-To use InfiniBand, you need to enable InfiniBand drivers.
+Before you install WRF, you need to deploy and connect a VM or HPC Cluster.
 
-## WRF installation
+For information about deploying the VM and installing the drivers, see one of these articles:
+- [Run a Windows VM on Azure](https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/n-tier/windows-vm)
+- [Run a Linux VM on Azure](https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/n-tier/linux-vm).
 
-Before you install WRF, you need to deploy and connect a Linux VM and install the required AMD and InfiniBand drivers.
+#### Download and Compile WRF
 
-For information about deploying the VM and installing the drivers, see [Run a Linux VM on Azure](../../reference-architectures/n-tier/linux-vm.yml).
+1. Open the [WRF Portal](https://www2.mmm.ucar.edu/wrf/users/download/get_source.html) in a web browser and sign up to download WRF the source code.
+2. Configure and Compile WRF. For detailed compiling follow the steps provided in [here.](https://www2.mmm.ucar.edu/wrf/OnLineTutorial/compilation_tutorial.php)
+3. Configuring option for WRF: For current performance test option 16 was selected.![image](https://github.com/MicrosoftDocs/architecture-center/assets/142488173/1cb06c65-3467-49ac-b7eb-f7875fc55737)
+4. Download static geographic data (for geogrid.exe) from [here.](https://www2.mmm.ucar.edu/wrf/users/download/get_sources_wps_geog.html)
+5. For Real time cases, WRF model requires up-to-date meteorological information for both an initial condition and also for lateral boundary conditions. The real time data can be downloaded from [here.](https://nomads.ncep.noaa.gov/)
+ 
+ Data used for current performance test: Date : 12-Feb-2023, Files: 
+ -  gfs.0p25.2023021200.f000.grib2
+ -  gfs.0p25.2023021200.f003.grib2
+ -  gfs.0p25.2023021200.f006.grib2
+ -  gfs.0p25.2023021200.f009.grib2
+ -  gfs.0p25.2023021200.f384.grib2
 
-You can download WRF from the [WRF users page](https://www2.mmm.ucar.edu/wrf/users/download/get_source.html).
+6. One must successfully run WPS, and create met_em. * file for more than one-time period and link or copy WPS output files to the WRF run directory. To run WPS refer the respective steps from [here.](https://www2.mmm.ucar.edu/wrf/OnLineTutorial/compilation_tutorial.php)
+7. Configuring option for WPS: For current performance test option 19 was selected.![image](https://github.com/MicrosoftDocs/architecture-center/assets/142488173/212e8a00-75b9-41e0-855d-50f2d91a16f7)
 
-Installation steps include setting up your environment and configuring and compiling WRF and WRF Preprocessing System (WPS). (You need WPS if you want to run simulations that use real data rather than idealized simulations.) For detailed compilation instructions, see [How to Compile WRF](https://www2.mmm.ucar.edu/wrf/OnLineTutorial/compilation_tutorial.php).
+8.	WRF model (In current case CONUS 2.5 km) is defined by the namelist.input file which will have the model geometric details.
+9.	Edit the namelist.input file for runtime options (at minimum, one must edit *&time* control for start, end and integration times, and *&domains* for grid dimensions)
+ 
+## WRF 4.4.2 performance results on Azure HPC Cluster
 
-## WRF performance results
-
- The New CONUS 2.5 km model was tested:
+ The New CONUS 2.5 km model is used for this performance evaluation.
+ 
+ WRF model (In current case CONUS 2.5 km) is defined by the namelist.input file which will have the model geometric details.
+ 
+ Edit the namelist.input file for runtime options (at minimum, one must edit &time control for start, end and integration times, and &domains for grid dimensions)
 
 :::image type="content" source="media/wrf/new-conus-25-km-model.png" alt-text="Screenshot that shows the New CONUS 2.5 km model." border="false":::
 
@@ -72,30 +93,36 @@ The following table provides details about the model.
 |-|-|-|-|-|-|-|-|
 |New CONUS 2.5 km	|2.5	|1901|	1301|	35	|2,473,201|	15|	6|
 
-Because thread configuration improves performance, we need to consider it in these performance tests. The thread settings shown in the following table provide improved hardware performance.
+The following table shows the System and Operating System details:
 
-The results were obtained by averaging the WRF computation time of each time step in the *rsl.out.0000* output file.
+|OS/Softwares| Details |
+|-|-|
+|Operating system version | CentOS Linux release 8.1.1911 (Core)|
+|OS Architecture | X86-64|
+|MPI|Open MPI 4.1.0|
+|Compiler|icc (ICC) 2021.4.0|
 
-|CPU|	Threads|	Tile|	MPI rank|	Simulation time (hours)|	Mean time per step (seconds)|
-|-|-|-|-|-|-|
-|16	|1|	162|	16|	3.25|	7.85|
-|32	|2|	162	|16	|2.08	|4.97|
-|64	|4	|325|	16	|1.59|	3.75|
-|96|	6|	325|	16|	1.46|	3.44|
-|120|	6|	260	|20|	1.43|	3.34|
+Standard_HB120-64rs_v3 VM with 64 vCPUs is considerd for the cluster runs. The simulation was run on 1, 2, 4, 8 and 16 nodes and the results are shown in the table below.
+
+|vm|Node|	CPU|	Tiles|	Threads|	Simulation time (hours)|	Mean time per step (seconds)|
+|-|-|-|-|-|-|-|
+|Standard_HB120-64rs_v3|1	|64|	325|	1|	02:11:30|	4.94|
+|Standard_HB120-64rs_v3|2	|128|	325	|1	|01:27:00	|3.07|
+|Standard_HB120-64rs_v3|4	|256	|325|1	|00:59:01|	1.86|
+|Standard_HB120-64rs_v3|8|	512|	325|1|	00:44:36|	1.17|
+|Standard_HB120-64rs_v3|16| 1024|	325	|1|	00:34:51|	0.83|
 
 The following graph shows the mean times per step, in seconds. 
 
-:::image type="content" source="media/wrf/graph.png" alt-text="Graph that shows the mean times per step." border="false":::
+![image](https://github.com/MicrosoftDocs/architecture-center/assets/142488173/1097d9cb-2e4c-4d9a-9f50-ae11788f476d)
 
 
 ### Additional notes about tests
 
-WRF version 4.3.1 was tested. The following table provides information about the VM that was used for testing.
+1. WRF is successfully deployed and tested on HBv3 AMD EPYC™ 7V73X series VM on Azure Platform.
+2. Expected meantime per step is achieved in all CPU cores in multi-node setup
+3. However, the scalability might vary depending on the dataset being used and the node count being tested. Ensure that to test the impact of the tile size, process, and threads per process before use.
 
-| Operating system version | OS architecture | MPI |Compiler  |
-|---------|---------|---------|---------|
-|CentOS Linux release 8.1.1911 (Core)     |  x86-64       |  Open MPI 4.1.0       |  ICC 2021.4.0   |
 
 ## Azure cost
 
@@ -105,13 +132,13 @@ Only the simulation time is represented in these times. Application installation
 
 You can use the [Azure pricing calculator](https://azure.microsoft.com/pricing/calculator) to estimate the costs for your configuration.
 
-|VM size|	 	Number of CPUs|	Simulation time (hours)|
-|-|-|-|
-|Standard_HB120-16rs_v3|		16	|3.25|		
-|Standard_HB120-32rs_v3|	32	|2.08		|
-|Standard_HB120-64rs_v3|	64	|1.59|		
-|Standard_HB120-96rs_v3|	96	|1.46|		
-|Standard_HB120rs_v3|	120|	1.43|
+|Number of Nodes|	Simulation time (hours)|
+|-|-|
+|1|02:11:30|		
+|2|01:27:00|
+|4|00:59:01|		
+|8|00:44:36|		
+|16|00:34:51|
 
 ## Summary
 
