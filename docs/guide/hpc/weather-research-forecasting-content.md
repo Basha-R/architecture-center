@@ -131,6 +131,7 @@ Principal authors:
     Principal Program Manager
 -   [Vinod Pamulapati](https://www.linkedin.com/in/vinod-reddy-20481a104) |
     HPC Performance Engineer
+-   [Vivi Richard](https://www.linkedin.com/in/vivi-richard) | HPC Performance Engineer
 
 Other contributors:
 
